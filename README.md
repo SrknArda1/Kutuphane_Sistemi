@@ -1,59 +1,162 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Kütüphane ve Ödünç Takip Sistemi
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Bir kütüphanenin kitap, üye, kategori ve ödünç alma işlemlerini yöneten web tabanlı sistem. Laravel 12 ve MySQL ile geliştirildi.
 
-## About Laravel
+Proje, ilişkisel veritabanı tasarımı üzerine kuruludur: şema 3. Normal Form (3NF) kurallarına uygun olarak tasarlandı, tablolar arası bağlar birincil/yabancı anahtarlarla kuruldu ve raporlama katmanı JOIN tabanlı SQL sorgularıyla çalışıyor.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Ne Yapıyor?
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Kategori, üye, kitap ve ödünç kayıtları** için tam CRUD (ekleme, listeleme, güncelleme, silme)
+- **Gecikme cezası takibi** — beklenen iade tarihi geçen ödünçler için ceza kaydı
+- **JOIN tabanlı raporlama paneli** — üç ayrı istatistik raporu
+- **Veri bütünlüğü koruması** — bağlı kaydı olan bir kategori/üye/kitap silinemez, kullanıcıya açıklayıcı hata gösterilir
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Teknoloji
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+| Katman | Teknoloji |
+|---|---|
+| Backend | PHP 8 / Laravel 12 |
+| Veritabanı | MySQL (InnoDB) |
+| ORM | Eloquent |
+| Arayüz | Blade template + CSS |
+| Şema yönetimi | Laravel Migrations |
 
-## Laravel Sponsors
+---
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Veritabanı Şeması
 
-### Premium Partners
+Beş tablo, dört ilişki:
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```
+kategoriler ──1:N──> kitaplar ──1:N──> oduncler <──1:N── uyeler
+                                           │
+                                          1:1
+                                           ▼
+                                        cezalar
+```
 
-## Contributing
+| Tablo | Açıklama | Yabancı Anahtar |
+|---|---|---|
+| `kategoriler` | Kitap kategorileri | — |
+| `uyeler` | Kütüphane üyeleri | — |
+| `kitaplar` | Kitap kayıtları | `kategori_id` → kategoriler |
+| `oduncler` | Ödünç alma işlemleri | `uye_id` → uyeler, `kitap_id` → kitaplar |
+| `cezalar` | Gecikme cezaları | `odunc_id` → oduncler |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Silme davranışı (ON DELETE) kararları
 
-## Code of Conduct
+Yabancı anahtarların silme davranışı bilinçli olarak seçildi:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- **RESTRICT** (`kitaplar→kategoriler`, `oduncler→uyeler`, `oduncler→kitaplar`): Bağlı kaydı olan bir satır silinemez. Kitabı olan kategori, ödünç geçmişi olan üye kazara silinemez — geçmiş kayıtlar korunur.
+- **CASCADE** (`cezalar→oduncler`): Ödünç kaydı silinirse cezası da silinir. Ceza, ödüncün sonucudur; tek başına anlamı yoktur.
 
-## Security Vulnerabilities
+### Normalizasyon (3NF)
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+- **1NF** — tüm sütunlar atomik, tekrarlayan grup yok
+- **2NF** — her tabloda tek sütunluk PK (`id`), kısmi bağımlılık yok
+- **3NF** — geçişli bağımlılık yok: `kitaplar` kategori *adını* değil `kategori_id` referansını tutar; `oduncler` üye adını/kitap başlığını tekrarlamaz, FK ile gösterir
 
-## License
+Detaylı tasarım gerekçeleri ve ER diyagramı için: **[Kutuphane_Sistemi_Rapor.pdf](Kutuphane_Sistemi_Rapor.pdf)**
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+---
+
+## Raporlar
+
+`/raporlar` sayfası üç JOIN tabanlı rapor sunar:
+
+**1. Üye–Kitap Ödünç Listesi** (3 tablo JOIN)
+```sql
+SELECT u.ad, u.soyad, k.baslik, o.odunc_tarihi, o.durum
+FROM oduncler o
+JOIN uyeler u ON o.uye_id = u.id
+JOIN kitaplar k ON o.kitap_id = k.id
+ORDER BY o.odunc_tarihi DESC;
+```
+
+**2. Kategoriye Göre Kitap Sayısı** (GROUP BY + LEFT JOIN)
+```sql
+SELECT kat.ad, COUNT(kit.id) AS kitap_sayisi
+FROM kategoriler kat
+LEFT JOIN kitaplar kit ON kit.kategori_id = kat.id
+GROUP BY kat.id, kat.ad
+ORDER BY kitap_sayisi DESC;
+```
+`LEFT JOIN` kullanıldı — hiç kitabı olmayan kategori de "0" değeriyle listede görünür.
+
+**3. En Az 3 Kitap Ödünç Almış Üyeler** (GROUP BY + HAVING)
+```sql
+SELECT u.ad, u.soyad, COUNT(o.id) AS odunc_sayisi
+FROM uyeler u
+JOIN oduncler o ON o.uye_id = u.id
+GROUP BY u.id, u.ad, u.soyad
+HAVING COUNT(o.id) >= 3;
+```
+Gruplama sonrası filtreleme gerektiği için `WHERE` değil `HAVING` kullanıldı — `COUNT` gibi grup fonksiyonları `WHERE` içinde çalışmaz.
+
+Uygulamada bu sorgular Eloquent ORM ile (`with`, `withCount`, `having`) yazıldı; parametreli sorgu üreterek SQL injection'a karşı korumalıdır.
+
+---
+
+## Kurulum
+
+```bash
+# 1. Projeyi klonla
+git clone https://github.com/SrknArda1/kutuphane-sistemi.git
+cd kutuphane-sistemi
+
+# 2. Bağımlılıkları kur
+composer install
+
+# 3. Ortam dosyasını hazırla
+cp .env.example .env
+php artisan key:generate
+```
+
+`.env` dosyasında veritabanı ayarlarını düzenle:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=kutuphane_sistemi
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+MySQL'de boş bir veritabanı oluştur (`kutuphane_sistemi`), sonra:
+
+```bash
+# 4. Tabloları oluştur ve örnek veriyi yükle
+php artisan migrate --seed
+
+# 5. Sunucuyu başlat
+php artisan serve
+```
+
+Tarayıcıda `http://localhost:8000` adresini aç.
+
+Seeder 4 kategori, 5 üye, 10 kitap, 13 ödünç ve 3 ceza kaydı oluşturur — raporları hemen test edebilirsin.
+
+---
+
+## Sayfalar
+
+| Rota | Açıklama |
+|---|---|
+| `/raporlar` | Üç JOIN raporu (ana sayfa) |
+| `/kategoriler` | Kategori CRUD |
+| `/uyeler` | Üye CRUD |
+| `/kitaplar` | Kitap CRUD (kategori seçimi dropdown ile) |
+| `/oduncler` | Ödünç CRUD (üye + kitap seçimi) |
+
+---
+
+## Geliştirici
+
+**Serkan Arda Bölükbaş**
+Kurumsal Bilişim Uzmanlığı — Yalova Üniversitesi, Çınarcık MYO
+[GitHub](https://github.com/SrknArda1)
