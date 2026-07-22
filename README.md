@@ -8,6 +8,7 @@ Proje, ilişkisel veritabanı tasarımı üzerine kuruludur: şema 3. Normal For
 
 
 
+
 ## Ne Yapıyor?
 
 - **Kategori, üye, kitap ve ödünç kayıtları** için tam CRUD (ekleme, listeleme, güncelleme, silme)
